@@ -3,131 +3,86 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>かくがりスロット修正版</title>
+    <title>診断モード付スロット</title>
     <style>
-        body { background-color: #1a1a1a; color: white; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
-        #slot-machine { width: 95%; max-width: 400px; background: #333; padding: 10px; border: 4px solid #ffcc00; border-radius: 10px; }
-        canvas { width: 100%; height: auto; background-color: #000; display: block; }
-        .controls { margin-top: 20px; width: 100%; text-align: center; }
-        #spinBtn { width: 80%; padding: 20px; font-size: 1.5rem; font-weight: bold; color: white; background: #e63946; border: none; border-radius: 50px; box-shadow: 0 5px #900; cursor: pointer; }
-        #spinBtn:disabled { background: #666; box-shadow: none; }
-        #status { margin-top: 15px; color: #ffcc00; font-weight: bold; }
+        body { background: #222; color: #fff; text-align: center; font-family: sans-serif; }
+        canvas { background: #000; width: 90%; max-width: 300px; height: auto; border: 2px solid gold; }
+        #debug-log { background: #000; color: #0f0; text-align: left; padding: 10px; font-size: 12px; margin-top: 20px; overflow-y: scroll; height: 150px; }
     </style>
 </head>
 <body>
 
-    <h1>かくがりスロット</h1>
-    <div id="slot-machine">
-        <canvas id="slotCanvas" width="300" height="400"></canvas>
+    <h2>スロット診断モード</h2>
+    <canvas id="slotCanvas" width="300" height="400"></canvas>
+    <div>
+        <button id="spinBtn" style="padding:20px; width:80%; font-size:20px;">回す</button>
     </div>
-    <div class="controls">
-        <button id="spinBtn">回す！</button>
-        <div id="status">画像読み込み状況を確認中...</div>
-    </div>
+
+    <div id="debug-log">【システムログ】<br></div>
 
     <script>
+        const log = document.getElementById('debug-log');
+        function addLog(msg) { log.innerHTML += msg + "<br>"; }
+
         const canvas = document.getElementById('slotCanvas');
         const ctx = canvas.getContext('2d');
-        const spinBtn = document.getElementById('spinBtn');
-        const statusText = document.getElementById('status');
-
+        
+        // あなたの指定したファイル名
         const slotItems = [
-            { id: 1, name: "ノーマルかくがり", src: "1.jpg" },
-            { id: 2, name: "着ぐるみかくがり", src: "2.jpg" },
-            { id: 3, name: "見つめかくがり", src: "3.jpg" },
-            { id: 4, name: "子連れかくがり", src: "4.jpg" },
-            { id: 5, name: "カニがり", src: "5.jpg" },
-            { id: 6, name: "金のかくがり", src: "6.jpg" }
+            { name: "ノーマル", src: "1.jpg" },
+            { name: "着ぐるみ", src: "2.jpg" },
+            { name: "見つめ", src: "3.jpg" },
+            { name: "子連れ", src: "4.jpg" },
+            { name: "カニ", src: "5.jpg" },
+            { name: "金", src: "6.jpg" }
         ];
 
         const images = [];
-        let reels = [0, 1, 2];
-        let isSpinning = false;
-
-        // --- 画像読み込み（読み込み失敗しても進むように改良） ---
         let loadedCount = 0;
+
+        addLog("画像読み込み開始...");
+
         slotItems.forEach((item, index) => {
             const img = new Image();
             img.src = item.src;
             img.onload = () => {
                 loadedCount++;
                 images[index] = img;
-                updateLoadingStatus();
+                addLog(`✅ 成功: ${item.src} (${img.width}x${img.height})`);
+                if(loadedCount === slotItems.length) addLog("🎉 全画像完了！");
+                draw();
             };
             img.onerror = () => {
-                loadedCount++; // エラーでもカウントを進める
-                console.error(`${item.src} が見つかりません。ファイル名と場所を確認してください。`);
-                updateLoadingStatus();
+                addLog(`❌ 失敗: ${item.src} が見つかりません`);
             };
         });
 
-        function updateLoadingStatus() {
-            statusText.innerText = `画像を読み込み中... (${loadedCount}/${slotItems.length})`;
-            draw(); // 読み込めた分だけ描画
-            if (loadedCount === slotItems.length) {
-                statusText.innerText = "準備完了！";
-            }
-        }
-
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            reels.forEach((imgIndex, i) => {
-                const img = images[imgIndex];
-                const x = i * 100 + 5;
+            [0, 1, 2].forEach((pos, i) => {
+                const img = images[pos];
                 if (img) {
-                    const drawW = 90;
-                    const drawH = drawW * (2000 / 1500);
-                    const y = (canvas.height - drawH) / 2;
-                    ctx.drawImage(img, x, y, drawW, drawH);
+                    ctx.drawImage(img, i * 100 + 5, 100, 90, 120);
                 } else {
-                    // 画像がない時は代わりに番号を表示
-                    ctx.fillStyle = "#444";
-                    ctx.fillRect(x, 100, 90, 120);
-                    ctx.fillStyle = "white";
-                    ctx.font = "20px Arial";
-                    ctx.textAlign = "center";
-                    ctx.fillText(imgIndex + 1, x + 45, 170);
+                    ctx.strokeStyle = "white";
+                    ctx.strokeRect(i * 100 + 5, 100, 90, 120);
+                    ctx.fillText(pos + 1, i * 100 + 45, 160);
                 }
             });
-            // 区切り線
-            ctx.strokeStyle = "#555";
-            ctx.beginPath();
-            ctx.moveTo(100, 0); ctx.lineTo(100, 400);
-            ctx.moveTo(200, 0); ctx.lineTo(200, 400);
-            ctx.stroke();
         }
 
-        function spin() {
-            if (isSpinning) return;
-            isSpinning = true;
-            spinBtn.disabled = true;
-            statusText.innerText = "スピン中！";
-
-            let count = 0;
-            const timer = setInterval(() => {
-                reels = reels.map(() => Math.floor(Math.random() * slotItems.length));
-                draw();
-                count++;
-                if (count > 20) {
-                    clearInterval(timer);
-                    isSpinning = false;
-                    spinBtn.disabled = false;
-                    checkWin();
-                }
-            }, 70);
-        }
-
-        function checkWin() {
-            if (reels[0] === reels[1] && reels[1] === reels[2]) {
-                statusText.innerText = `🎉【${slotItems[reels[0]].name}】確定！ 🎉`;
-            } else {
-                statusText.innerText = "ハズレ！";
-            }
-        }
-
-        spinBtn.addEventListener('click', spin);
-        // 初期描画
-        draw();
+        // 簡易スピン
+        document.getElementById('spinBtn').onclick = () => {
+            const r = () => Math.floor(Math.random() * 6);
+            const reels = [r(), r(), r()];
+            addLog(`スピン結果: ${reels.map(n => n+1).join('-')}`);
+            // 描画更新（簡略版）
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            reels.forEach((imgIdx, i) => {
+                const img = images[imgIdx];
+                if(img) ctx.drawImage(img, i * 100 + 5, 100, 90, 120);
+            });
+        };
     </script>
 </body>
 </html>
