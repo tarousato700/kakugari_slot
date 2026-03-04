@@ -3,239 +3,216 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>かくがりスロット モバイル版</title>
+    <title>かくがりスロット - 究極演出Ver</title>
     <style>
+        :root { 
+            --rainbow: linear-gradient(124deg, #ff2400, #e81d1d, #e8b71d, #e3e81d, #1de840, #1ddde8, #2b1de8, #dd00f3); 
+        }
+        
         body {
-            background-color: #1a1a1a;
-            color: white;
-            font-family: sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            margin: 0;
-            overflow-x: hidden;
+            background-color: #1a1a1a; color: white; font-family: sans-serif;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            min-height: 100vh; margin: 0; overflow: hidden; transition: background 0.2s;
         }
 
-        h1 { font-size: 1.2rem; color: #ffcc00; margin: 10px 0; }
+        .kakuhen-active {
+            animation: rainbow-bg 0.3s linear infinite;
+            background-size: 800% 800% !important;
+        }
+        @keyframes rainbow-bg {
+            0%{background-position:0% 80%} 50%{background-position:100% 20%} 100%{background-position:0% 80%}
+        }
 
         #slot-container {
-            width: 95%;
-            max-width: 400px;
-            background: linear-gradient(145deg, #444, #111);
-            padding: 15px;
-            border: 4px solid #ffcc00;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
-            box-sizing: border-box;
+            width: 92%; max-width: 400px; background: #222; padding: 15px;
+            border: 4px solid #ffcc00; border-radius: 20px; position: relative; z-index: 10;
         }
 
-        canvas {
-            width: 100%;
-            height: auto;
-            background-color: #000;
-            display: block;
-            border-radius: 5px;
-            border: 2px solid #222;
-        }
+        canvas { width: 100%; height: auto; background: #fff; display: block; border-radius: 10px; }
 
-        .controls {
-            margin-top: 20px;
-            width: 100%;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 10px;
-        }
-
+        .controls { margin-top: 25px; z-index: 10; width: 100%; text-align: center; }
         #spinBtn {
-            width: 80%;
-            padding: 18px;
-            font-size: 1.5rem;
-            font-weight: bold;
-            color: white;
-            background: #e63946;
-            border: none;
-            border-radius: 50px;
-            box-shadow: 0 5px #900;
-            cursor: pointer;
-            -webkit-tap-highlight-color: transparent;
+            width: 80%; padding: 18px; font-size: 1.5rem; font-weight: bold;
+            background: #e63946; color: white; border: none; border-radius: 50px;
+            box-shadow: 0 5px #900; cursor: pointer; -webkit-tap-highlight-color: transparent;
+        }
+        #spinBtn:disabled { background: #555; box-shadow: none; color: #888; }
+
+        /* 演出用共通レイヤー */
+        #effect-layer {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            pointer-events: none; z-index: 1000; display: none;
         }
 
-        #spinBtn:active {
-            transform: translateY(3px);
-            box-shadow: 0 2px #900;
+        /* テキスト演出（コーラ投入 & 当選名） */
+        .pop-text {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            font-weight: 900; white-space: nowrap; z-index: 1100; text-align: center;
+            animation: text-pop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+        
+        .cola-style { font-size: 3.5rem; color: #ffd700; text-shadow: 0 0 15px #fff, 4px 4px 0 #8b4513; }
+        .win-style { font-size: 3rem; color: #fff; text-shadow: 0 0 20px #ff0000, 0 0 10px #ffcc00; }
+
+        @keyframes text-pop { 0% { scale: 0; opacity: 0; } 100% { scale: 1; opacity: 1; } }
+
+        /* 流星群画像 */
+        .shooting-img {
+            position: absolute; width: 100px;
+            animation: shooting-anime 2.4s linear forwards;
+        }
+        @keyframes shooting-anime {
+            0% { transform: translate(120vw, -20vh) rotate(0deg); }
+            100% { transform: translate(-50vw, 120vh) rotate(-120deg); }
         }
 
-        #spinBtn:disabled {
-            background: #555;
-            box-shadow: none;
-            color: #aaa;
-        }
-
-        #status {
-            font-size: 0.9rem;
-            color: #ffcc00;
-            font-weight: bold;
-            min-height: 1.2em;
-        }
-
-        /* ログ確認用（不要になったら消せます） */
-        #debug-log {
-            width: 90%;
-            font-size: 10px;
-            color: #0f0;
-            background: #000;
-            padding: 5px;
-            margin-top: 10px;
-            border-radius: 5px;
-            text-align: left;
-            max-height: 80px;
-            overflow-y: auto;
-        }
+        #freeze-mask { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 2000; display: none; }
     </style>
 </head>
 <body>
 
-    <h1>かくがりスロット</h1>
+    <div id="freeze-mask"></div>
+    <div id="effect-layer"></div>
 
+    <h1>かくがりスロット</h1>
     <div id="slot-container">
         <canvas id="slotCanvas" width="300" height="400"></canvas>
     </div>
 
     <div class="controls">
-        <button id="spinBtn" disabled>画像ロード中...</button>
-        <div id="status"></div>
+        <button id="spinBtn" disabled>データ読み込み中...</button>
+        <div id="status" style="margin-top:15px; color:#ffcc00; font-weight:bold; height:1.2em;"></div>
     </div>
-
-    <div id="debug-log">Log: Initializing...</div>
 
     <script>
         const canvas = document.getElementById('slotCanvas');
         const ctx = canvas.getContext('2d');
         const spinBtn = document.getElementById('spinBtn');
+        const effectLayer = document.getElementById('effect-layer');
+        const freezeMask = document.getElementById('freeze-mask');
         const statusText = document.getElementById('status');
-        const debugLog = document.getElementById('debug-log');
 
-        function addLog(msg) {
-            debugLog.innerHTML += `<br>> ${msg}`;
-            debugLog.scrollTop = debugLog.scrollHeight;
-        }
-
-        // 画像リスト（1.tiff に対応）
         const slotItems = [
-            { id: 1, name: "ノーマルかくがり", src: "1.tiff" },
-            { id: 2, name: "着ぐるみかくがり", src: "2.jpg" },
-            { id: 3, name: "見つめかくがり", src: "3.jpg" },
-            { id: 4, name: "子連れかくがり", src: "4.jpg" },
-            { id: 5, name: "カニがり", src: "5.jpg" },
-            { id: 6, name: "金のかくがり", src: "6.jpg" }
+            { name: "ノーマルかくがり", src: "normalk.jpg" },
+            { name: "着ぐるみかくがり", src: "kigurimik.png" },
+            { name: "見つめかくがり", src: "mitsumek.png" },
+            { name: "子連れかくがり", src: "kodurek.png" },
+            { name: "カニがり", src: "kanik.png" },
+            { name: "金のかくがり", src: "goldk.png" }
         ];
-
-        const images = [];
-        let reels = [0, 1, 2];
-        let isSpinning = false;
+        
+        const kakuhenImgSrc = "kakuhen.png";
+        let images = [];
+        let kakuhenImg = new Image();
+        let reels = [null, null, null];
         let loadedCount = 0;
 
-        // 画像のプリロード
-        slotItems.forEach((item, index) => {
-            const img = new Image();
-            // キャッシュ回避のタイムスタンプ付与
-            img.src = item.src + "?v=" + Date.now();
-            
-            img.onload = () => {
-                loadedCount++;
-                images[index] = img;
-                addLog(`Loaded: ${item.src} (${img.width}x${img.height})`);
-                if (loadedCount === slotItems.length) {
-                    initGame();
-                }
-                draw();
-            };
-
-            img.onerror = () => {
-                loadedCount++;
-                addLog(`Error: ${item.src} not found.`);
-                if (loadedCount === slotItems.length) initGame();
-            };
-        });
-
-        function initGame() {
-            spinBtn.disabled = false;
-            spinBtn.innerText = "回す！";
-            statusText.innerText = "準備完了";
-            addLog("Game Ready.");
+        function checkReady() {
+            loadedCount++;
+            if (loadedCount >= slotItems.length + 1) {
+                spinBtn.disabled = false;
+                spinBtn.innerText = "回す！";
+            }
         }
 
-        function draw() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        slotItems.forEach((item, i) => {
+            const img = new Image();
+            img.onload = checkReady; img.onerror = checkReady;
+            img.src = item.src + "?v=" + Date.now();
+            images[i] = img;
+        });
 
-            reels.forEach((imgIndex, i) => {
-                const x = i * 100;
-                const img = images[imgIndex];
-                
-                if (img) {
-                    // 縦横比 3:4 (1500x2000) を守って描画
-                    const drawW = 90;
-                    const drawH = drawW * (2000 / 1500); // 120px
-                    const y = (canvas.height - drawH) / 2;
-                    ctx.drawImage(img, x + 5, y, drawW, drawH);
-                } else {
-                    // 画像がない場合のプレースホルダー
-                    ctx.fillStyle = "#333";
-                    ctx.fillRect(x + 5, 140, 90, 120);
-                    ctx.fillStyle = "white";
-                    ctx.font = "20px bold Arial";
-                    ctx.textAlign = "center";
-                    ctx.fillText(imgIndex + 1, x + 50, 205);
+        kakuhenImg.onload = checkReady; kakuhenImg.onerror = checkReady;
+        kakuhenImg.src = kakuhenImgSrc + "?v=" + Date.now();
+
+        function draw() {
+            ctx.clearRect(0, 0, 300, 400);
+            reels.forEach((idx, i) => {
+                if (idx !== null && images[idx]) {
+                    ctx.drawImage(images[idx], i * 100 + 5, 140, 90, 120);
                 }
             });
-
-            // リールの区切り線
-            ctx.strokeStyle = "rgba(255,204,0,0.3)";
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(100, 0); ctx.lineTo(100, 400);
-            ctx.moveTo(200, 0); ctx.lineTo(200, 400);
+            ctx.strokeStyle = "#ccc"; ctx.lineWidth = 2; ctx.beginPath();
+            ctx.moveTo(100, 0); ctx.lineTo(100, 400); ctx.moveTo(200, 0); ctx.lineTo(200, 400);
             ctx.stroke();
         }
 
-        function spin() {
-            if (isSpinning) return;
-            isSpinning = true;
+        async function spin() {
             spinBtn.disabled = true;
-            statusText.innerText = "抽選中...";
-
+            statusText.innerText = "";
+            effectLayer.style.display = "none"; // 前回のテキストを消す
             let count = 0;
-            const maxCounts = 25;
-
             const timer = setInterval(() => {
                 reels = reels.map(() => Math.floor(Math.random() * slotItems.length));
                 draw();
-                count++;
-
-                if (count >= maxCounts) {
+                if (++count > 20) {
                     clearInterval(timer);
-                    isSpinning = false;
-                    spinBtn.disabled = false;
-                    checkWin();
+                    processResult();
                 }
             }, 60);
         }
 
-        function checkWin() {
-            const r1 = reels[0], r2 = reels[1], r3 = reels[2];
-            if (r1 === r2 && r2 === r3) {
-                statusText.innerText = `🎉 当たり！【${slotItems[r1].name}】 🎉`;
+        async function processResult() {
+            const r = reels;
+            const isReach = (r[0] === r[1] || r[1] === r[2] || r[0] === r[2]);
+            const isWin = (r[0] === r[1] && r[1] === r[2]);
+
+            if (isReach && !isWin && Math.random() < 1/7) {
+                // 復活確変演出
+                await startKakuhenEffect();
+                const winIdx = (r[0] === r[1] || r[0] === r[2]) ? r[0] : r[1];
+                reels = [winIdx, winIdx, winIdx];
+                draw();
+                showWinName(slotItems[winIdx].name);
+            } else if (isWin) {
+                // 通常当選
+                showWinName(slotItems[r[0]].name);
             } else {
-                statusText.innerText = "残念！ハズレ";
+                statusText.innerText = "ハズレ";
             }
+            spinBtn.disabled = false;
         }
 
-        spinBtn.addEventListener('click', spin);
-        
-        // 初回描画
+        // 当選名を表示する関数
+        function showWinName(name) {
+            effectLayer.style.display = "block";
+            effectLayer.innerHTML = `<div class="pop-text win-style">${name}</div>`;
+            statusText.innerText = `🎉 ${name} 確定！ 🎉`;
+        }
+
+        function startKakuhenEffect() {
+            return new Promise(resolve => {
+                freezeMask.style.display = "block";
+                document.body.classList.add('kakuhen-active');
+                document.body.style.background = "var(--rainbow)";
+                effectLayer.style.display = "block";
+                effectLayer.innerHTML = '<div class="pop-text cola-style">コーラ投入！！</div>';
+
+                const totalParticles = 75; 
+                for (let i = 0; i < totalParticles; i++) {
+                    setTimeout(() => {
+                        const img = document.createElement('img');
+                        img.src = kakuhenImg.src;
+                        img.className = 'shooting-img';
+                        img.style.left = (Math.random() * 150 - 30) + "vw";
+                        img.style.top = (Math.random() * 40 - 20) + "vh";
+                        img.style.width = (80 + Math.random() * 120) + "px";
+                        img.style.zIndex = Math.floor(Math.random() * 50);
+                        effectLayer.appendChild(img);
+                    }, i * 35);
+                }
+
+                setTimeout(() => {
+                    document.body.classList.remove('kakuhen-active');
+                    document.body.style.background = "#1a1a1a";
+                    effectLayer.innerHTML = ""; // コーラ投入の文字を一旦消す
+                    freezeMask.style.display = "none";
+                    resolve();
+                }, 4500); 
+            });
+        }
+
+        spinBtn.onclick = spin;
         draw();
     </script>
 </body>
