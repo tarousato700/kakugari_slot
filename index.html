@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>かくがりスロット - 伝説演出Ver</title>
+    <title>かくがりスロット - 振動体感Ver</title>
     <style>
         :root { 
             --rainbow: linear-gradient(124deg, #ff2400, #e81d1d, #e8b71d, #e3e81d, #1de840, #1ddde8, #2b1de8, #dd00f3); 
@@ -38,13 +38,11 @@
         }
         #spinBtn:disabled { background: #555; box-shadow: none; color: #888; }
 
-        /* 演出用レイヤー */
         #effect-layer {
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
             pointer-events: none; z-index: 1000; display: none;
         }
 
-        /* 共通テキストスタイル */
         .pop-text {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
             font-weight: 900; white-space: nowrap; z-index: 1100; text-align: center;
@@ -55,7 +53,6 @@
 
         @keyframes text-pop { 0% { scale: 0; opacity: 0; } 100% { scale: 1; opacity: 1; } }
 
-        /* 流星群画像 */
         .shooting-img {
             position: absolute; width: 100px;
             animation: shooting-anime 2.4s linear forwards;
@@ -65,19 +62,18 @@
             100% { transform: translate(-50vw, 120vh) rotate(-120deg); }
         }
 
-        /* やるやん演出画像（金のかくがり限定） */
         .yaruyan-img {
             position: absolute; top: 50%; left: 50%;
             transform: translate(-50%, -50%);
-            width: 100px; /* 初期サイズ */
+            width: 100px;
             z-index: 1200;
-            display: none; /* JSで表示 */
+            display: none;
             filter: drop-shadow(0 0 10px #fff);
             animation: yaruyan-pop 0.5s cubic-bezier(0.19, 1, 0.22, 1) forwards;
         }
         @keyframes yaruyan-pop {
             0% { scale: 0; opacity: 1; }
-            100% { scale: 2.5; opacity: 1; } /* 画面飛び出すくらい大きく */
+            100% { scale: 2.5; opacity: 1; }
         }
 
         #freeze-mask { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 2000; display: none; }
@@ -112,21 +108,28 @@
             { name: "見つめかくがり", src: "mitsumek.png" },
             { name: "子連れかくがり", src: "kodurek.png" },
             { name: "カニがり", src: "kanik.png" },
-            { name: "金のかくがり", src: "goldk.png" } // 6番目の絵柄
+            { name: "金のかくがり", src: "goldk.png" }
         ];
         
         const kakuhenImgSrc = "kakuhen.png";
-        const yaruyanImgSrc = "yaruyan.png"; // 金限定の画像
+        const yaruyanImgSrc = "yaruyan.png";
 
         let images = [];
         let kakuhenImg = new Image();
-        let yaruyanImg = new Image(); // 金限定の画像オブジェクト
+        let yaruyanImg = new Image();
         let reels = [null, null, null];
         let loadedCount = 0;
 
+        // バイブレーション関数（iPhoneなどの非対応ブラウザでもエラーにならないように）
+        function vibrate(pattern) {
+            if ("vibrate" in navigator) {
+                navigator.vibrate(pattern);
+            }
+        }
+
         function checkReady() {
             loadedCount++;
-            if (loadedCount >= slotItems.length + 2) { // 2枚の特別画像（確変 & やるやん）
+            if (loadedCount >= slotItems.length + 2) {
                 spinBtn.disabled = false;
                 spinBtn.innerText = "回す！";
             }
@@ -141,9 +144,8 @@
 
         kakuhenImg.onload = checkReady; kakuhenImg.onerror = checkReady;
         kakuhenImg.src = kakuhenImgSrc + "?v=" + Date.now();
-
         yaruyanImg.onload = checkReady; yaruyanImg.onerror = checkReady;
-        yaruyanImg.src = yaruyanImgSrc + "?v=" + Date.now(); // 金限定画像をロード
+        yaruyanImg.src = yaruyanImgSrc + "?v=" + Date.now();
 
         function draw() {
             ctx.clearRect(0, 0, 300, 400);
@@ -158,6 +160,8 @@
         }
 
         async function spin() {
+            // スピン開始時に軽く一瞬震えさせる
+            vibrate(10);
             spinBtn.disabled = true;
             statusText.innerText = "";
             effectLayer.style.display = "none";
@@ -178,14 +182,12 @@
             const isWin = (r[0] === r[1] && r[1] === r[2]);
 
             if (isReach && !isWin && Math.random() < 1/7) {
-                // 復活確変演出
                 await startKakuhenEffect();
                 const winIdx = (r[0] === r[1] || r[0] === r[2]) ? r[0] : r[1];
                 reels = [winIdx, winIdx, winIdx];
                 draw();
                 handleWin(winIdx);
             } else if (isWin) {
-                // 通常当選
                 handleWin(r[0]);
             } else {
                 statusText.innerText = "ハズレ";
@@ -193,12 +195,11 @@
             spinBtn.disabled = false;
         }
 
-        // 当選時の処理（金限定か通常か）
         async function handleWin(winIdx) {
-            if (winIdx === 5) { // 金のかくがり（インデックスは0から始まるので、6番目は5）
+            if (winIdx === 5) {
                 await startGoldWinEffect();
             } else {
-                // 通常当選のポップアップ
+                vibrate(200); // 通常当選：0.2秒震える
                 showWinName(slotItems[winIdx].name);
             }
         }
@@ -209,41 +210,39 @@
             statusText.innerText = `🎉 ${name} 確定！ 🎉`;
         }
 
-        // 金のかくがり限定演出（やるやん5連続ポップアップ）
         function startGoldWinEffect() {
             return new Promise(resolve => {
                 freezeMask.style.display = "block";
-                document.body.style.background = "#FFD700"; // 一旦背景を金に
-                
+                document.body.style.background = "#FFD700";
                 effectLayer.style.display = "block";
-                effectLayer.innerHTML = ""; // 画面をクリア
+                effectLayer.innerHTML = "";
 
                 let count = 0;
                 const totalPops = 5;
 
-                // 0.5秒おきにポップアップを繰り返す
                 const interval = setInterval(() => {
                     if (count < totalPops) {
-                        // 既存の画像を消す（リセット）
                         effectLayer.innerHTML = "";
-                        // 新しいやるやん画像を生成して投入
                         const img = document.createElement('img');
                         img.src = yaruyanImgSrc;
                         img.className = 'yaruyan-img';
-                        img.style.display = "block"; // 強制表示
+                        img.style.display = "block";
                         effectLayer.appendChild(img);
+                        
+                        // 飛び出すリズムに合わせて激しく震える（0.15秒）
+                        vibrate(150);
+                        
                         count++;
                     } else {
-                        // 5回終わったら終了
                         clearInterval(interval);
                         setTimeout(() => {
                             document.body.style.background = "#1a1a1a";
                             freezeMask.style.display = "none";
                             statusText.innerText = "伝説のやるやん確定！";
                             resolve();
-                        }, 500); // 最後のポップアップを表示させておく
+                        }, 500);
                     }
-                }, 500); // 0.5秒感覚
+                }, 500);
             });
         }
 
@@ -254,6 +253,9 @@
                 document.body.style.background = "var(--rainbow)";
                 effectLayer.style.display = "block";
                 effectLayer.innerHTML = '<div class="pop-text cola-style">コーラ投入！！</div>';
+
+                // コーラ投入中：細かく「ブルッ、ブルッ」と震え続ける
+                vibrate([100, 50, 100, 50, 100, 50, 100, 50, 100, 50, 100, 50]);
 
                 const totalParticles = 75; 
                 for (let i = 0; i < totalParticles; i++) {
@@ -272,7 +274,7 @@
                 setTimeout(() => {
                     document.body.classList.remove('kakuhen-active');
                     document.body.style.background = "#1a1a1a";
-                    effectLayer.innerHTML = ""; // 画面をクリア
+                    effectLayer.innerHTML = "";
                     freezeMask.style.display = "none";
                     resolve();
                 }, 4500); 
